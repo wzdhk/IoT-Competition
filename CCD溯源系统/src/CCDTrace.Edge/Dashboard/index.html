@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CCD 溯源 · 边缘看板</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>CCD 溯源 · 边缘采集看板</h1>
+    <span id="conn" class="pill">未连接</span>
+  </header>
+
+  <main class="grid">
+    <section class="card kpi">
+      <p class="kpi-label">总产量</p>
+      <p id="total" class="kpi-value">0</p>
+    </section>
+    <section class="card kpi">
+      <p class="kpi-label">合格数量</p>
+      <p id="ok" class="kpi-value">0</p>
+    </section>
+    <section class="card kpi">
+      <p class="kpi-label">合格率</p>
+      <p id="rate" class="kpi-value">0%</p>
+    </section>
+
+    <section class="card wide">
+      <h2>最近绑定记录</h2>
+      <table>
+        <thead><tr><th>QR 码</th><th>结果</th><th>时间</th></tr></thead>
+        <tbody id="records"></tbody>
+      </table>
+    </section>
+
+    <section class="card wide">
+      <h2>状态</h2>
+      <ul id="status"></ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

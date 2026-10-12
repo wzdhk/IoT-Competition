@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+  <title>环境传感器 · 模拟面板</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: system-ui, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+    }
+
+    body {
+      background: linear-gradient(145deg, #e9ecef 0%, #dee2e6 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .dashboard {
+      max-width: 1100px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 42px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12), 0 6px 12px rgba(0, 0, 0, 0.05);
+      padding: 32px 24px 24px;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      transition: all 0.2s;
+    }
+
+    h1 {
+      font-weight: 500;
+      font-size: 2.2rem;
+      letter-spacing: -0.02em;
+      color: #1e2b3c;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 8px;
+    }
+
+    /* 复用网格样式，增加行间距 */
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 18px;
+      margin-bottom: 18px; /* 两行之间的间距 */
+    }
+    /* 最后一行去掉底部间距 */
+    .sensor-grid:last-child {
+      margin-bottom: 0;
+    }
+
+    .sensor-card {
+      background: white;
+      border-radius: 28px;
+      padding: 22px 12px 18px;
+      box-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.9);
+      transition: transform 0.15s, box-shadow 0.2s;
+      text-align: center;
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+    }
+
+    .sensor-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 18px 28px -10px rgba(0, 20, 40, 0.2), inset 0 0 0 1px white;
+    }
+
+    .sensor-icon {
+      font-size: 2.4rem;
+      margin-bottom: 8px;
+      line-height: 1.2;
+    }
+
+    .sensor-name {
+      font-weight: 500;
+      color: #334e68;
+      letter-spacing: 0.3px;
+      font-size: 1rem;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      opacity: 0.8;
+    }
+
+    .sensor-value {
+      font-size: 2.8rem;
+      font-weight: 600;
+      color: #0b1e2c;
+      line-height: 1.2;
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .unit {
+      font-size: 1rem;
+      font-weight: 400;
+      color: #5e707e;
+      margin-left: 2px;
+    }
+
+    .water-state {
+      font-size: 1.8rem;
+      font-weight: 600;
+      display: inline-block;
+      padding: 6px 18px;
+      border-radius: 60px;
+      background: #eef2f6;
+      margin-top: 4px;
+    }
+
+    .water-normal {
+      color: #1f7a5c;
+      background: #d8f3e5;
+    }
+
+    .water-alarm {
+      color: #b13e3e;
+      background: #ffe6e6;
+    }
+
+    /* 移动端优化 */
+    @media (max-width: 550px) {
+      .dashboard {
+        padding: 24px 16px 16px;
+        border-radius: 32px;
+      }
+      h1 {
+        font-size: 1.9rem;
+        margin-bottom: 20px;
+      }
+      .sensor-value {
+        font-size: 2.4rem;
+      }
+      .water-state {
+        font-size: 1.5rem;
+      }
+      .sensor-card {
+        padding: 18px 8px 14px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .sensor-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="dashboard">
+  <h1>🌿 环境感知</h1>
+
+  <!-- 第一排传感器：光照度、PM2.5、PM10、PM1 -->
+  <div class="sensor-grid">
+    <!-- 光照度 -->
+    <div class="sensor-card">
+      <div class="sensor-icon">☀️</div>
+      <div class="sensor-name">光照度</div>
+      <div class="sensor-value">
+        <span id="lightVal">500</span><span class="unit">lx</span>
+      </div>
+    </div>
+    <!-- PM2.5 -->
+    <div class="sensor-card">
+      <div class="sensor-icon">🌫️</div>
+      <div class="sensor-name">PM2.5</div>
+      <div class="sensor-value">
+        <span id="pm25Val">25</span><span class="unit">µg/m³</span>
+      </div>
+    </div>
+    <!-- PM10 -->
+    <div class="sensor-card">
+      <div class="sensor-icon">💨</div>
+      <div class="sensor-name">PM10</div>
+      <div class="sensor-value">
+        <span id="pm10Val">40</span><span class="unit">µg/m³</span>
+      </div>
+    </div>
+    <!-- PM1 -->
+    <div class="sensor-card">
+      <div class="sensor-icon">🔬</div>
+      <div class="sensor-name">PM1.0</div>
+      <div class="sensor-value">
+        <span id="pm1Val">15</span><span class="unit">µg/m³</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 第二排传感器：水浸状态、温度、湿度 -->
+  <div class="sensor-grid">
+    <!-- 浸水状态 -->
+    <div class="sensor-card">
+      <div class="sensor-icon">💧</div>
+      <div class="sensor-name">浸水状态</div>
+      <div class="sensor-value" style="display: block;">
+        <span id="waterStateDisplay" class="water-state water-normal">正常</span>
+      </div>
+    </div>
+    <!-- 温度 -->
+    <div class="sensor-card">
+      <div class="sensor-icon">🌡️</div>
+      <div class="sensor-name">温度</div>
+      <div class="sensor-value">
+        <span id="tempVal">25.0</span><span class="unit">°C</span>
+      </div>
+    </div>
+    <!-- 湿度 -->
+    <div class="sensor-card">
+      <div class="sensor-icon">💧</div>
+      <div class="sensor-name">湿度</div>
+      <div class="sensor-value">
+        <span id="humVal">60</span><span class="unit">%</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    "use strict";
+
+    // ---------- 传感器状态 (初始值) ----------
+    const sensors = {
+      light: 500,        // 光照度 lx
+      pm25: 25,          // PM2.5
+      pm10: 40,          // PM10
+      pm1: 15,           // PM1
+      water: 0,          // 0 = 正常, 1 = 浸水
+      temperature: 25.0, // °C
+      humidity: 60       // %
+    };
+
+    // DOM 元素
+    const lightEl = document.getElementById('lightVal');
+    const pm25El = document.getElementById('pm25Val');
+    const pm10El = document.getElementById('pm10Val');
+    const pm1El = document.getElementById('pm1Val');
+    const waterDisplayEl = document.getElementById('waterStateDisplay');
+    const tempEl = document.getElementById('tempVal');
+    const humEl = document.getElementById('humVal');
+
+    // 更新间隔 (30秒)
+    const UPDATE_INTERVAL = 30;
+    let sensorTimer = null;
+
+    // ---------- 辅助函数：钳位 & 格式化 ----------
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    // 保证 PM1 ≤ PM2.5 ≤ PM10 (同时非负)
+    function enforcePmOrder() {
+      sensors.pm10 = Math.max(0, sensors.pm10);
+      sensors.pm25 = Math.max(0, sensors.pm25);
+      sensors.pm1 = Math.max(0, sensors.pm1);
+
+      if (sensors.pm25 > sensors.pm10) {
+        sensors.pm25 = Math.max(0, sensors.pm10 * 0.92);
+      }
+      if (sensors.pm1 > sensors.pm25) {
+        sensors.pm1 = Math.max(0, sensors.pm25 * 0.85);
+      }
+      if (sensors.pm1 > sensors.pm25) sensors.pm1 = sensors.pm25 * 0.9;
+      if (sensors.pm25 > sensors.pm10) sensors.pm25 = sensors.pm10 * 0.95;
+
+      sensors.pm10 = Math.round(sensors.pm10);
+      sensors.pm25 = Math.round(sensors.pm25);
+      sensors.pm1 = Math.round(sensors.pm1);
+    }
+
+    // 刷新界面
+    function updateUI() {
+      lightEl.textContent = Math.round(sensors.light);
+      pm25El.textContent = sensors.pm25;
+      pm10El.textContent = sensors.pm10;
+      pm1El.textContent = sensors.pm1;
+      tempEl.textContent = sensors.temperature.toFixed(1);
+      humEl.textContent = Math.round(sensors.humidity);
+
+      if (sensors.water === 1) {
+        waterDisplayEl.textContent = '⚠️ 浸水';
+        waterDisplayEl.className = 'water-state water-alarm';
+      } else {
+        waterDisplayEl.textContent = '✅ 正常';
+        waterDisplayEl.className = 'water-state water-normal';
+      }
+    }
+
+    // ---------- 核心：传感器数据更新 (每30秒调用) ----------
+    function updateSensorData() {
+      // 光照度 ±10
+      let lightDelta = (Math.random() * 20) - 10;
+      sensors.light = clamp(sensors.light + lightDelta, 0, 20000);
+
+      // PM 系列 ±10
+      let pm25Delta = (Math.random() * 20) - 10;
+      let pm10Delta = (Math.random() * 20) - 10;
+      let pm1Delta = (Math.random() * 20) - 10;
+
+      sensors.pm25 = sensors.pm25 + pm25Delta;
+      sensors.pm10 = sensors.pm10 + pm10Delta;
+      sensors.pm1 = sensors.pm1 + pm1Delta;
+
+      // 温度 ±5
+      let tempDelta = (Math.random() * 10) - 5;
+      sensors.temperature = clamp(sensors.temperature + tempDelta, -10, 32);
+
+      // 湿度 ±10
+      let humDelta = (Math.random() * 20) - 10;
+      sensors.humidity = clamp(sensors.humidity + humDelta, 0, 100);
+
+      // 浸水状态随机切换
+      sensors.water = Math.random() < 0.5 ? 0 : 1;
+
+      // 调整PM顺序
+      enforcePmOrder();
+
+      sensors.light = Math.round(sensors.light);
+      sensors.humidity = Math.round(sensors.humidity);
+
+      updateUI();
+    }
+
+    // ---------- 初始化 ----------
+    function init() {
+      enforcePmOrder();
+      updateUI();
+
+      if (sensorTimer) clearInterval(sensorTimer);
+      sensorTimer = setInterval(() => {
+        updateSensorData();
+      }, UPDATE_INTERVAL * 1000);
+    }
+
+    // 清理定时器
+    window.addEventListener('beforeunload', function() {
+      if (sensorTimer) clearInterval(sensorTimer);
+    });
+
+    init();
+  })();
+</script>
+</body>
+</html>

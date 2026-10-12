@@ -1,0 +1,9 @@
+bin/
+obj/
+*.user
+*.suo
+.vs/
+trace.db
+config.json
+.dotnet/
+dotnet-install.ps1

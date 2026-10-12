@@ -1,0 +1,58 @@
+# ---- 压缩包 / 归档文件 ----
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+*.tgz
+*.gz
+*.bz2
+
+# ---- .NET 构建产物 ----
+.dotnet/
+bin/
+obj/
+packages/
+*.user
+*.suo
+*.cache
+.vs/
+[Bb]in/
+[Oo]bj/
+
+# ---- Python ----
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.eggs/
+
+# ---- PlatformIO / ESP32 ----
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# ---- Node.js ----
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# ---- 通用构建输出 ----
+dist/
+build/
+_internal/
+*.log
+
+# ---- 本地嵌套仓库备份（CCD溯源系统 原有的 git 历史） ----
+.git_backup_local/
+
+# ---- IDE ----
+.idea/
+*.iml
+*.swp
+.DS_Store
+Thumbs.db

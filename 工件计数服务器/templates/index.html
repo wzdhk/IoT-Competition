@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>环境监控中心</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="{{ url_for('static', filename='chart.umd.min.js') }}"></script>
+    <style>
+        :root {
+            /* 表面 */
+            --bg-top: #2f6fc0;
+            --bg-mid: #a9c9ec;
+            --bg-bottom: #ffffff;
+            --card: #ffffff;
+            --card-shadow: 0 1px 3px rgba(31, 66, 128, 0.08), 0 2px 8px rgba(31, 66, 128, 0.05);
+            /* 文字（对比度已提至 AA） */
+            --ink: #0f172a;
+            --ink-2: #475569;
+            --muted: #64748b;
+            --on-dark: #f1f5f9;
+            /* 状态色 */
+            --ok: #16a34a;
+            --warn: #d97706;
+            --alarm: #dc2626;
+            /* 控制带 */
+            --control-bg: #0f172a;
+            --control-line: #334155;
+            --font: "Inter", system-ui, -apple-system, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            font-family: var(--font);
+            font-size: 14px;
+            line-height: 20px;
+            color: var(--ink);
+            background: linear-gradient(180deg, #0a1d3d 0%, #13376b 22%, var(--bg-top) 48%, var(--bg-mid) 76%, var(--bg-bottom) 100%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: auto;
+            -webkit-font-smoothing: antialiased;
+        }
+        /* 极光氛围：单一缓慢漂移的径向光 */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(60% 45% at 15% 8%, rgba(0, 150, 255, 0.30), transparent 60%),
+                radial-gradient(50% 42% at 85% 15%, rgba(96, 190, 255, 0.22), transparent 55%);
+            animation: aurora-drift 16s ease-in-out infinite alternate;
+        }
+        @keyframes aurora-drift {
+            from { transform: translateY(0) scale(1); }
+            to { transform: translateY(-14px) scale(1.05); }
+        }
+
+        /* 焦点可见（键盘导航） */
+        :focus-visible {
+            outline: 2px solid #2563eb;
+            outline-offset: 2px;
+        }
+
+        /* ---------- 顶部栏 ---------- */
+        .nav-bar {
+            flex: none;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+            padding: 0 24px;
+        }
+        .brand { font-weight: 700; font-size: 28px; color: #ffffff; text-shadow: 0 2px 26px rgba(0, 40, 120, 0.55); }
+        .nav-right { position: absolute; right: 24px; display: flex; align-items: center; gap: 10px; }
+        .status-pill {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 6px 14px; border-radius: 999px;
+            background: rgba(255, 255, 255, 0.92); color: var(--ink);
+            font-size: 13px; font-weight: 600;
+        }
+        .status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+        .status-pill.offline { background: #fef2f2; color: var(--alarm); }
+        .status-pill.offline .dot { background: var(--alarm); }
+        .alarm-badge {
+            display: none; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 999px;
+            background: var(--alarm); color: #fff;
+            font-size: 13px; font-weight: 700;
+        }
+        .alarm-badge.show { display: inline-flex; animation: pulse 1.6s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+        .nav-meta { font-size: 12px; color: rgba(255, 255, 255, 0.92); font-variant-numeric: tabular-nums; }
+
+        /* ---------- 主仪表盘 ---------- */
+        .dashboard {
+            flex: 1 1 auto;
+            min-height: 0;
+            width: 100%;
+            max-width: 1440px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            gap: 16px;
+            padding: 16px 24px;
+        }
+
+        /* ---------- 统计卡 ---------- */
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.72);
+            backdrop-filter: blur(14px) saturate(120%);
+            -webkit-backdrop-filter: blur(14px) saturate(120%);
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 8px 24px -12px rgba(10, 30, 60, 0.35);
+            position: relative;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 16px 36px -14px rgba(10, 30, 60, 0.45); }
+        .stat-card::before {
+            content: "";
+            position: absolute;
+            left: 0; top: 14px; bottom: 14px;
+            width: 4px; border-radius: 0 4px 4px 0;
+            background: var(--muted);
+        }
+        .stat-card.ok::before { background: var(--ok); }
+        .stat-card.warn::before { background: var(--warn); }
+        .stat-card.alarm::before { background: var(--alarm); }
+        .stat-card.alarm { box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.5), 0 12px 34px -10px rgba(220, 38, 38, 0.55); }
+        .stat-card .label { font-size: 13px; color: var(--ink-2); }
+        .stat-card .value {
+            font-weight: 700; font-size: 30px; line-height: 36px;
+            color: var(--ink); margin-top: 2px;
+            font-variant-numeric: tabular-nums;
+        }
+        .stat-card.ok .value { color: var(--ink); }
+        .stat-card.warn .value { color: var(--warn); text-shadow: 0 0 18px rgba(217, 119, 6, 0.42); }
+        .stat-card.alarm .value { color: #ff4545; text-shadow: 0 0 18px rgba(255, 69, 69, 0.55); }
+        .stat-card.run::before { background: #0284c7; }
+        .stat-card.run .value { color: #0284c7; }
+        .stat-card .unit { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+        /* ---------- 图表 ---------- */
+        .charts { display: grid; grid-template-columns: 2.2fr 1fr; gap: 16px; min-height: 0; }
+        .chart-card {
+            background: rgba(255, 255, 255, 0.72);
+            backdrop-filter: blur(14px) saturate(120%);
+            -webkit-backdrop-filter: blur(14px) saturate(120%);
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            border-radius: 16px;
+            padding: 16px 20px; display: flex; flex-direction: column;
+            min-height: 0; box-shadow: 0 8px 24px -12px rgba(10, 30, 60, 0.35);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .chart-card:hover { transform: translateY(-3px); box-shadow: 0 16px 36px -14px rgba(10, 30, 60, 0.45); }
+        .chart-card h2 { flex: none; font-weight: 700; font-size: 15px; line-height: 22px; color: var(--ink); margin-bottom: 6px; }
+        .chart-card .hint { flex: none; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+        .chart-box { flex: 1 1 auto; min-height: 0; position: relative; }
+        .donut-card .donut-row { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; gap: 16px; }
+        .donut-card .chart-box { flex: 1 1 auto; min-height: 0; }
+        .donut-readout { min-width: 96px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+        .donut-readout .row { display: flex; justify-content: space-between; gap: 12px; color: var(--ink-2); }
+        .donut-readout .row b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+        /* ---------- 执行器控制 ---------- */
+        .controls { background: var(--control-bg); color: var(--on-dark); border-radius: 16px; padding: 16px 20px; }
+        .control-grid { display: grid; grid-template-columns: 0.9fr 1.2fr 1.6fr; gap: 28px; }
+        .control-group h3 { font-weight: 700; font-size: 15px; line-height: 22px; color: var(--on-dark); margin-bottom: 8px; }
+        .ctrl-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; }
+        .ctrl-row.stack { flex-direction: column; align-items: flex-start; gap: 8px; }
+        .ctrl-label { color: var(--on-dark); font-size: 14px; font-weight: 500; }
+        .ctrl-label small { display: block; font-size: 11px; color: #94a3b8; font-weight: 400; margin-top: 1px; }
+
+        /* 开关（≥44px 触控目标） */
+        .switch { position: relative; display: inline-block; width: 52px; height: 32px; flex-shrink: 0; }
+        .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+        .switch .track {
+            position: absolute; inset: 0; pointer-events: none;
+            background: #475569; border-radius: 999px; transition: background 0.2s;
+        }
+        .switch .track::after {
+            content: ""; position: absolute;
+            height: 26px; width: 26px; left: 3px; top: 3px;
+            background: #cbd5e1; border-radius: 50%; transition: transform 0.2s, background 0.2s;
+        }
+        .switch input:checked + .track { background: var(--ok); }
+        .switch input:checked + .track::after { background: #fff; transform: translateX(20px); }
+        .switch input:focus-visible + .track { outline: 2px solid #38bdf8; outline-offset: 2px; }
+
+        /* 模式胶囊 */
+        .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chip {
+            background: transparent; border: 1px solid var(--control-line);
+            color: var(--on-dark); font-family: inherit;
+            font-size: 13px; font-weight: 500; line-height: 20px;
+            padding: 10px 16px; border-radius: 999px; cursor: pointer;
+            transition: all 0.15s;
+        }
+        .chip.selected { background: #fff; border-color: #fff; color: var(--control-bg); }
+        .chip[aria-pressed="true"] { background: #fff; border-color: #fff; color: var(--control-bg); }
+
+        /* 颜色行（滑块 + 数字输入 + 色块） */
+        .color-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+        .color-row .tag { width: 22px; height: 22px; border-radius: 999px; flex-shrink: 0; display: grid; place-items: center; background: #fff; color: var(--control-bg); font-size: 10px; font-weight: 700; }
+        .color-row input[type="range"] {
+            flex: 1; -webkit-appearance: none; appearance: none;
+            height: 6px; border-radius: 6px; background: #475569; outline: none; cursor: pointer;
+        }
+        .color-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
+            background: #fff; border: 2px solid var(--control-bg); cursor: pointer;
+        }
+        .color-row input[type="range"]::-moz-range-thumb {
+            width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 2px solid var(--control-bg); cursor: pointer;
+        }
+        .color-row input[type="number"] {
+            width: 52px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--control-line);
+            background: #1e293b; color: #fff; font-family: inherit; font-size: 13px;
+            font-variant-numeric: tabular-nums;
+        }
+        .swatch { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #fff; flex-shrink: 0; }
+
+        /* 提示条 */
+        #toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 600;
+            color: #fff; background: #0f172a; box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+            opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 50;
+            max-width: 80vw;
+        }
+        #toast.show { opacity: 1; }
+        #toast.err { background: var(--alarm); }
+        #toast.ok { background: var(--ok); }
+
+        .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+        @media (max-width: 900px) {
+            .brand { font-size: 22px; }
+            .dashboard { grid-template-rows: auto auto auto; }
+            .charts { grid-template-columns: 1fr; }
+            .control-grid { grid-template-columns: 1fr; gap: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-bar" aria-label="顶部导航">
+        <h1 class="brand">环境监控中心</h1>
+        <div class="nav-right">
+            <span class="alarm-badge" id="alarmBadge" role="status" aria-live="polite"></span>
+            <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">连接中</span></span>
+            <span class="nav-meta" id="navMeta" aria-live="polite">--:--:--</span>
+        </div>
+    </nav>
+
+    <main class="dashboard">
+        <section class="stat-grid" aria-label="传感器实时数据">
+            <div class="stat-card" id="card-temp"><div class="label">温度</div><div class="value" id="vWendu">--</div><div class="unit">℃</div></div>
+            <div class="stat-card" id="card-hum"><div class="label">湿度</div><div class="value" id="vShidu">--</div><div class="unit">%</div></div>
+            <div class="stat-card" id="card-illum"><div class="label">光照度</div><div class="value" id="vIlluminance">--</div><div class="unit">lux</div></div>
+            <div class="stat-card" id="card-pm25"><div class="label">PM2.5</div><div class="value" id="vPm25">--</div><div class="unit">μg/m³</div></div>
+            <div class="stat-card" id="card-pm10"><div class="label">PM10</div><div class="value" id="vPm10">--</div><div class="unit">μg/m³</div></div>
+            <div class="stat-card" id="card-pm1"><div class="label">PM1</div><div class="value" id="vPm1">--</div><div class="unit">μg/m³</div></div>
+            <div class="stat-card" id="card-flood"><div class="label">浸水状态</div><div class="value" id="vFlooding">--</div><div class="unit">状态</div></div>
+            <div class="stat-card" id="card-fan"><div class="label">风扇</div><div class="value" id="vFan">--</div><div class="unit">状态</div></div>
+            <div class="stat-card" id="card-estop"><div class="label">急停</div><div class="value" id="vEstop">--</div><div class="unit">状态</div></div>
+        </section>
+
+        <section class="charts" aria-label="趋势图表">
+            <div class="chart-card">
+                <h2>环境传感趋势</h2>
+                <div class="hint">各参数按报警阈值归一化（100% = 报警），红虚线为报警线</div>
+                <div class="chart-box"><canvas id="trendChart" role="img" aria-label="六项环境参数按报警阈值归一化的趋势折线图"></canvas></div>
+            </div>
+            <div class="chart-card donut-card">
+                <h2>PM10 粒径构成</h2>
+                <div class="donut-row">
+                    <div class="chart-box"><canvas id="pmSizeChart" role="img" aria-label="PM10 粒径构成环形图，分为小于等于1微米、1到2.5微米、2.5到10微米三段"></canvas></div>
+                    <div class="donut-readout" id="pmSizeReadout"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="controls" aria-label="执行器控制">
+            <div class="control-grid">
+                <div class="control-group">
+                    <h3>温湿度自动化</h3>
+                    <div class="ctrl-row">
+                        <span class="ctrl-label" id="lbl-wdAuto">温度自动化<small>自动控温</small></span>
+                        <label class="switch"><input type="checkbox" id="wdAutoSwitch" aria-labelledby="lbl-wdAuto" onchange="toggleAuto('wd_auto')"><span class="track"></span></label>
+                    </div>
+                    <div class="ctrl-row">
+                        <span class="ctrl-label" id="lbl-sdAuto">湿度自动化<small>自动控湿</small></span>
+                        <label class="switch"><input type="checkbox" id="sdAutoSwitch" aria-labelledby="lbl-sdAuto" onchange="toggleAuto('sd_auto')"><span class="track"></span></label>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <h3>灯带控制</h3>
+                    <div class="ctrl-row">
+                        <span class="ctrl-label" id="lbl-rgbSwitch">灯带开关</span>
+                        <label class="switch"><input type="checkbox" id="rgbSwitch" aria-labelledby="lbl-rgbSwitch" onchange="toggleRGB()"><span class="track"></span></label>
+                    </div>
+                    <div class="ctrl-row stack">
+                        <span class="ctrl-label" id="lbl-rgbMode">灯带模式</span>
+                        <div class="chip-row" id="modeChips" role="group" aria-labelledby="lbl-rgbMode">
+                            <button class="chip" data-mode="0" aria-pressed="false" onclick="selectMode(0)">常亮</button>
+                            <button class="chip" data-mode="1" aria-pressed="false" onclick="selectMode(1)">呼吸</button>
+                            <button class="chip" data-mode="2" aria-pressed="false" onclick="selectMode(2)">流水灯</button>
+                            <button class="chip" data-mode="3" aria-pressed="false" onclick="selectMode(3)">跑马灯</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <h3>灯带颜色</h3>
+                    <div class="color-row">
+                        <span class="tag">R</span>
+                        <input type="range" min="0" max="255" value="0" id="redSlider" aria-label="红色值" oninput="onColorInput('RGB_color_red', this)">
+                        <input type="number" min="0" max="255" value="0" id="redNum" aria-label="红色数值" onchange="onColorNum('RGB_color_red', this)">
+                    </div>
+                    <div class="color-row">
+                        <span class="tag">G</span>
+                        <input type="range" min="0" max="255" value="0" id="greenSlider" aria-label="绿色值" oninput="onColorInput('RGB_color_green', this)">
+                        <input type="number" min="0" max="255" value="0" id="greenNum" aria-label="绿色数值" onchange="onColorNum('RGB_color_green', this)">
+                    </div>
+                    <div class="color-row">
+                        <span class="tag">B</span>
+                        <input type="range" min="0" max="255" value="255" id="blueSlider" aria-label="蓝色值" oninput="onColorInput('RGB_color_blue', this)">
+                        <input type="number" min="0" max="255" value="255" id="blueNum" aria-label="蓝色数值" onchange="onColorNum('RGB_color_blue', this)">
+                    </div>
+                    <div class="color-row">
+                        <span class="ctrl-label" style="font-size:12px;">预览</span>
+                        <div class="swatch" id="rgbSwatch" aria-hidden="true"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast" role="alert" aria-live="assertive"></div>
+
+    <script>
+        "use strict";
+        const origin = window.location.origin;
+        const MAX_POINTS = 40;
+
+        // 传感指标：报警阈值 + 系列色
+        const METRICS = [
+            { key: 'temp',  field: 'wendu',       el: 'vWendu',       label: '温度',   unit: '℃',     decimals: 1, color: '#eb6834', warn: 30,    alarm: 40 },
+            { key: 'hum',   field: 'shidu',       el: 'vShidu',       label: '湿度',   unit: '%',     decimals: 0, color: '#2a78d6', warn: 70,    alarm: 85 },
+            { key: 'illum', field: 'Illuminance', el: 'vIlluminance', label: '光照度', unit: 'lux',   decimals: 0, color: '#c98500', warn: 10000, alarm: 15000 },
+            { key: 'pm25',  field: 'PM2_5',       el: 'vPm25',        label: 'PM2.5',  unit: 'μg/m³', decimals: 0, color: '#e87ba4', warn: 35,    alarm: 75 },
+            { key: 'pm10',  field: 'PM10',        el: 'vPm10',        label: 'PM10',   unit: 'μg/m³', decimals: 0, color: '#1baf7a', warn: 50,    alarm: 150 },
+            { key: 'pm1',   field: 'PM1',         el: 'vPm1',         label: 'PM1',    unit: 'μg/m³', decimals: 0, color: '#4a3aa7', warn: 25,    alarm: 50 }
+        ];
+        const STATUS = { ok: 'ok', warn: 'warn', alarm: 'alarm' };
+        const STATUS_CN = { ok: '正常', warn: '预警', alarm: '报警' };
+
+        if (window.Chart) {
+            Chart.defaults.font.family = '"Inter", system-ui, -apple-system, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif';
+            Chart.defaults.font.size = 11;
+            Chart.defaults.color = '#475569';
+            Chart.defaults.borderColor = '#e2e8f0';
+        }
+
+        // ---------- 历史缓冲（原始值） ----------
+        const hist = { labels: [] };
+        METRICS.forEach(m => hist[m.key] = []);
+        function pushHistory(d) {
+            const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+            hist.labels.push(t);
+            METRICS.forEach(m => hist[m.key].push(num(d[m.field])));
+            if (hist.labels.length > MAX_POINTS) {
+                hist.labels.shift();
+                METRICS.forEach(m => hist[m.key].shift());
+            }
+        }
+        function num(v) { const n = Number(v); return isFinite(n) ? n : 0; }
+        function metricOf(key) { return METRICS.find(m => m.key === key); }
+        function statusOf(m, v) { if (v >= m.alarm) return STATUS.alarm; if (v >= m.warn) return STATUS.warn; return STATUS.ok; }
+        function normAlarm(v, m) { return Math.max(0, num(v) / m.alarm * 100); }
+
+        // ---------- 数字滚动 ----------
+        const prevValues = {};
+        function tweenText(el, to, decimals = 1) {
+            const from = prevValues[el.id] ?? to;
+            prevValues[el.id] = to;
+            if (from === to) { el.textContent = to.toFixed(decimals); return; }
+            const dur = 420, start = performance.now();
+            function step(now) {
+                const p = Math.min(1, (now - start) / dur);
+                const eased = 1 - Math.pow(1 - p, 3);
+                el.textContent = (from + (to - from) * eased).toFixed(decimals);
+                if (p < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }
+
+        // ---------- 取数 ----------
+        let lastUpdate = null;
+        async function fetchSensor() {
+            try {
+                const r = await fetch(origin + '/api/sensor_stats');
+                if (!r.ok) throw new Error(r.status);
+                const d = await r.json();
+                lastUpdate = Date.now();
+                return d;
+            } catch (e) { return null; }
+        }
+
+        // ---------- 提示条 ----------
+        let toastTimer = null;
+        function toast(msg, type) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.className = type === 'err' ? 'err show' : (type === 'ok' ? 'ok show' : 'show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+        }
+
+        // ---------- 图表 ----------
+        let trendChart, pmSizeChart;
+
+        function createCharts() {
+            if (!window.Chart) return;
+            const datasets = METRICS.map(m => ({
+                label: m.label,
+                data: hist[m.key].map(v => normAlarm(v, m)),
+                borderColor: m.color,
+                fill: false, tension: 0.35, borderWidth: 2,
+                pointRadius: 0, pointHoverRadius: 3,
+                pointHoverBackgroundColor: m.color, pointHoverBorderColor: '#fff'
+            }));
+            // 报警参考线（100%）
+            datasets.push({
+                label: '__alarm_line__',
+                data: hist.labels.map(() => 100),
+                borderColor: '#dc2626', borderDash: [6, 4], borderWidth: 1.5,
+                pointRadius: 0, fill: false
+            });
+
+            trendChart = new Chart(document.getElementById('trendChart'), {
+                type: 'line',
+                data: { labels: hist.labels, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: { duration: 900, easing: 'easeOutQuart' },
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            display: true, position: 'top', align: 'start',
+                            labels: {
+                                boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: 'circle',
+                                color: '#0f172a', font: { size: 11, weight: '600' }, padding: 6,
+                                filter: item => item.text !== '__alarm_line__'
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#0f172a', titleColor: '#fff', bodyColor: '#e2e8f0',
+                            padding: 10, cornerRadius: 8, displayColors: true,
+                            callbacks: {
+                                label: (ctx) => {
+                                    if (ctx.dataset.label === '__alarm_line__') return ' 报警阈值';
+                                    const m = METRICS[ctx.datasetIndex];
+                                    const raw = hist[m.key][ctx.dataIndex];
+                                    return ` ${m.label}: ${raw.toFixed(m.decimals)} ${m.unit}（${STATUS_CN[statusOf(m, raw)]}）`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, border: { color: '#e2e8f0' }, ticks: { color: '#64748b', maxTicksLimit: 6, maxRotation: 0, font: { size: 10 } } },
+                        y: {
+                            beginAtZero: true, suggestedMax: 120,
+                            grid: { color: '#e2e8f0' }, border: { display: false },
+                            ticks: { color: '#64748b', font: { size: 10 }, padding: 6, callback: v => v + '%' }
+                        }
+                    }
+                }
+            });
+
+            pmSizeChart = new Chart(document.getElementById('pmSizeChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['≤1μm', '1–2.5μm', '2.5–10μm'],
+                    datasets: [{ data: [0, 0, 0], backgroundColor: ['#2a78d6', '#eb6834', '#1baf7a'], borderColor: '#ffffff', borderWidth: 2, hoverOffset: 6 }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '62%', animation: { duration: 900, easing: 'easeOutQuart' },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, color: '#0f172a', font: { size: 11, weight: '600' }, padding: 10 } },
+                        tooltip: { backgroundColor: '#0f172a', titleColor: '#fff', bodyColor: '#e2e8f0', padding: 10, cornerRadius: 8 }
+                    }
+                }
+            });
+        }
+
+        function updateCharts(d) {
+            if (trendChart) {
+                trendChart.data.labels = hist.labels;
+                METRICS.forEach((m, i) => {
+                    trendChart.data.datasets[i].data = hist[m.key].map(v => normAlarm(v, m));
+                });
+                trendChart.data.datasets[METRICS.length].data = hist.labels.map(() => 100);
+                trendChart.update('none');
+            }
+            const pm25 = num(d.PM2_5), pm10 = num(d.PM10), pm1 = num(d.PM1);
+            const fine = Math.max(0, pm1), med = Math.max(0, pm25 - pm1), coarse = Math.max(0, pm10 - pm25);
+            if (pmSizeChart) { pmSizeChart.data.datasets[0].data = [fine, med, coarse]; pmSizeChart.update('none'); }
+            document.getElementById('pmSizeReadout').innerHTML =
+                `<div class="row"><span>≤1μm</span><b>${fine.toFixed(0)}</b></div>` +
+                `<div class="row"><span>1–2.5μm</span><b>${med.toFixed(0)}</b></div>` +
+                `<div class="row"><span>2.5–10μm</span><b>${coarse.toFixed(0)}</b></div>`;
+        }
+
+        // ---------- 数值卡（阈值着色） ----------
+        function applyStatCards(d) {
+            METRICS.forEach(m => setStat(m.key, num(d[m.field]), m.el, m.decimals));
+
+            const fc = document.getElementById('card-flood');
+            const fv = document.getElementById('vFlooding');
+            if (num(d.flooding) !== 1) { fv.textContent = '报警'; fc.className = 'stat-card alarm'; }
+            else { fv.textContent = '正常'; fc.className = 'stat-card ok'; }
+
+            const fanc = document.getElementById('card-fan');
+            const fanv = document.getElementById('vFan');
+            if (num(d.fan) === 1) { fanv.textContent = '运转中'; fanc.className = 'stat-card run'; }
+            else { fanv.textContent = '停止'; fanc.className = 'stat-card'; }
+
+            const esc = document.getElementById('card-estop');
+            const esv = document.getElementById('vEstop');
+            if (num(d.E_stop) === 0) { esv.textContent = '急停中'; esc.className = 'stat-card alarm'; }
+            else { esv.textContent = '正常'; esc.className = 'stat-card ok'; }
+
+            updateAlarmBadge(d);
+        }
+        function setStat(key, v, elId, decimals) {
+            const m = metricOf(key);
+            const st = statusOf(m, v);
+            const card = document.getElementById('card-' + key);
+            card.className = 'stat-card ' + st;
+            tweenText(document.getElementById(elId), v, decimals);
+        }
+
+        // ---------- 告警徽章 ----------
+        function updateAlarmBadge(d) {
+            const alarms = METRICS.filter(m => statusOf(m, num(d[m.field])) === STATUS.alarm).map(m => m.label);
+            if (num(d.flooding) !== 1) alarms.push('水浸');
+            if (num(d.E_stop) === 0) alarms.push('急停');
+            const badge = document.getElementById('alarmBadge');
+            if (alarms.length) { badge.textContent = alarms.length + ' 项报警'; badge.classList.add('show'); }
+            else badge.classList.remove('show');
+        }
+
+        // ---------- 执行器控制（带错误反馈） ----------
+        function updateSwitch(id, on) { const el = document.getElementById(id); if (el) el.checked = !!on; }
+        function toggleAuto(type) {
+            const el = document.getElementById(type === 'wd_auto' ? 'wdAutoSwitch' : 'sdAutoSwitch');
+            const prev = !el.checked; // 记录回滚值
+            fetch(origin + '/api/toggle_auto/' + type, { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.status === 'ok') { updateSwitch(el.id, d.value === 1); toast(type === 'wd_auto' ? '温度自动化已' + (d.value ? '开启' : '关闭') : '湿度自动化已' + (d.value ? '开启' : '关闭'), 'ok'); }
+                    else { updateSwitch(el.id, prev); toast(d.message || '切换失败', 'err'); }
+                })
+                .catch(() => { updateSwitch(el.id, prev); toast('命令发送失败，请检查网络', 'err'); });
+        }
+        function toggleRGB() {
+            const el = document.getElementById('rgbSwitch');
+            const prev = !el.checked;
+            const newVal = el.checked ? 1 : 0;
+            fetch(origin + '/api/rgb_control/RGB', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: newVal }) })
+                .then(r => r.json())
+                .then(d => { if (d.status === 'ok') { el.checked = (d.value === 1); toast('灯带已' + (d.value ? '开启' : '关闭'), 'ok'); } else { el.checked = prev; toast(d.message || '设置失败', 'err'); } })
+                .catch(() => { el.checked = prev; toast('命令发送失败，请检查网络', 'err'); });
+        }
+        function selectMode(value) {
+            document.querySelectorAll('#modeChips .chip').forEach(c => {
+                const sel = Number(c.dataset.mode) === value;
+                c.classList.toggle('selected', sel);
+                c.setAttribute('aria-pressed', sel ? 'true' : 'false');
+            });
+            fetch(origin + '/api/rgb_control/RGB_mode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: Number(value) }) })
+                .then(r => r.json())
+                .then(d => { if (d.status !== 'ok') toast(d.message || '设置模式失败', 'err'); })
+                .catch(() => toast('命令发送失败，请检查网络', 'err'));
+        }
+        let colorTimer = null;
+        function sendColor(name, v) {
+            clearTimeout(colorTimer);
+            colorTimer = setTimeout(() => {
+                fetch(origin + '/api/rgb_control/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: v }) })
+                    .then(r => r.json())
+                    .then(d => { if (d.status !== 'ok') toast(d.message || '设置颜色失败', 'err'); })
+                    .catch(() => toast('命令发送失败，请检查网络', 'err'));
+            }, 250);
+        }
+        function onColorInput(name, el) {
+            const v = clamp255(parseInt(el.value, 10));
+            syncColorPair(name, v);
+            updateSwatch();
+            sendColor(name, v);
+        }
+        function onColorNum(name, el) {
+            const v = clamp255(parseInt(el.value, 10));
+            el.value = v;
+            syncColorPair(name, v);
+            updateSwatch();
+            sendColor(name, v);
+        }
+        function syncColorPair(name, v) {
+            const base = name.replace('RGB_color_', '').toLowerCase();
+            const slider = document.getElementById(base + 'Slider');
+            const numInput = document.getElementById(base + 'Num');
+            if (slider) slider.value = v;
+            if (numInput && document.activeElement !== numInput) numInput.value = v;
+        }
+        function updateSwatch() {
+            const r = document.getElementById('redSlider').value;
+            const g = document.getElementById('greenSlider').value;
+            const b = document.getElementById('blueSlider').value;
+            document.getElementById('rgbSwatch').style.background = `rgb(${r},${g},${b})`;
+        }
+        function clamp255(v) { if (isNaN(v)) return 0; return Math.max(0, Math.min(255, v)); }
+        function applyControls(d) {
+            if (d.wd_auto !== undefined) updateSwitch('wdAutoSwitch', d.wd_auto === 1);
+            if (d.sd_auto !== undefined) updateSwitch('sdAutoSwitch', d.sd_auto === 1);
+            if (d.RGB !== undefined) updateSwitch('rgbSwitch', d.RGB === 1);
+            if (d.RGB_mode !== undefined) {
+                document.querySelectorAll('#modeChips .chip').forEach(c => {
+                    const sel = Number(c.dataset.mode) === Number(d.RGB_mode);
+                    c.classList.toggle('selected', sel);
+                    c.setAttribute('aria-pressed', sel ? 'true' : 'false');
+                });
+            }
+            if (d.RGB_color_red !== undefined) syncColorPair('RGB_color_red', d.RGB_color_red);
+            if (d.RGB_color_green !== undefined) syncColorPair('RGB_color_green', d.RGB_color_green);
+            if (d.RGB_color_blue !== undefined) syncColorPair('RGB_color_blue', d.RGB_color_blue);
+            updateSwatch();
+        }
+
+        // ---------- 时钟 & 状态 ----------
+        function tickClock() {
+            const t = new Date();
+            const hhmmss = t.toLocaleTimeString('zh-CN', { hour12: false });
+            let meta = hhmmss;
+            if (lastUpdate) {
+                const age = Math.round((Date.now() - lastUpdate) / 1000);
+                meta = hhmmss + ' · 更新于 ' + new Date(lastUpdate).toLocaleTimeString('zh-CN', { hour12: false }) + (age > 5 ? '（数据已过期）' : '');
+            }
+            document.getElementById('navMeta').textContent = meta;
+        }
+        function setOnline(ok) {
+            const pill = document.getElementById('statusPill');
+            pill.classList.toggle('offline', !ok);
+            document.getElementById('statusText').textContent = ok ? '在线' : '离线';
+        }
+
+        async function refresh() {
+            const d = await fetchSensor();
+            if (d) { setOnline(true); pushHistory(d); applyStatCards(d); updateCharts(d); applyControls(d); }
+            else setOnline(false);
+        }
+        async function init() {
+            tickClock();
+            setInterval(tickClock, 1000);
+            const d = await fetchSensor();
+            if (d) { setOnline(true); pushHistory(d); applyStatCards(d); applyControls(d); }
+            createCharts();
+            if (d) updateCharts(d);
+            setInterval(refresh, 1000);
+        }
+        init();
+    </script>
+</body>
+</html>

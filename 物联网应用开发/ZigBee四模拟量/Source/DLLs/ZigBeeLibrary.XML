@@ -1,0 +1,95 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ZigBeeLibrary</name>
+    </assembly>
+    <members>
+        <member name="T:ZigBeeLibrary.ComSettingModel">
+            <summary>
+            串口、通道号设置模型
+            </summary>
+        </member>
+        <member name="P:ZigBeeLibrary.ComSettingModel.ZigbeeCom">
+            <summary>
+            Zigbee串口号
+            </summary>
+        </member>
+        <member name="T:ZigBeeLibrary.ZigBee">
+            <summary>
+            ZigBee
+            </summary>
+        </member>
+        <member name="F:ZigBeeLibrary.ZigBee.lightValue">
+            <summary>
+            光照值（IN1）
+            </summary>
+        </member>
+        <member name="F:ZigBeeLibrary.ZigBee.temperatureValue">
+            <summary>
+            温度值（IN2）
+            </summary>
+        </member>
+        <member name="F:ZigBeeLibrary.ZigBee.humidityValue">
+            <summary>
+            湿度值（IN3）
+            </summary>
+        </member>
+        <member name="M:ZigBeeLibrary.ZigBee.#ctor(ZigBeeLibrary.ComSettingModel)">
+            <summary>
+            构造函数
+            </summary>
+            <param name="settingModel">串口设置模型</param>
+        </member>
+        <member name="M:ZigBeeLibrary.ZigBee.CheckData(System.Byte[])">
+            <summary>
+            检验数据是否正确
+            </summary>
+            <param name="data"></param>
+            <returns></returns>
+        </member>
+        <member name="M:ZigBeeLibrary.ZigBee.GetValue(System.Byte[],System.Int32)">
+            <summary>
+            根据通道设置获取长度为byte数组，用于转化为int值
+            </summary>
+            <param name="data"></param>
+            <param name="channel"></param>
+            <returns></returns>
+        </member>
+        <member name="M:ZigBeeLibrary.ZigBee.ConvertValue(System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>
+            转换值
+            </summary>
+            <param name="value">转换前的值</param>
+            <param name="maxRange">最大量程</param>
+            <param name="mixRange">最小量程</param>
+            <param name="decimalFlag">小数位数</param>
+            <returns>转换后的值</returns>
+        </member>
+        <member name="M:ZigBeeLibrary.ZigBee.GetSet">
+            <summary>
+            获取传感器值
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="P:ZigBeeLibrary.ZigBee.IN1Original">
+            <summary>
+            IN1原始值
+            </summary>
+        </member>
+        <member name="P:ZigBeeLibrary.ZigBee.IN2Original">
+            <summary>
+            IN2原始值
+            </summary>
+        </member>
+        <member name="P:ZigBeeLibrary.ZigBee.IN3Original">
+            <summary>
+            IN3原始值
+            </summary>
+        </member>
+        <member name="P:ZigBeeLibrary.ZigBee.IN4Original">
+            <summary>
+            IN4原始值
+            </summary>
+        </member>
+    </members>
+</doc>

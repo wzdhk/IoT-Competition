@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ZigBeeLibrary</name>
+    </assembly>
+    <members>
+        <member name="T:ZigBeeLibrary.ComSettingModel">
+            <summary>
+            串口、通道号设置模型
+            </summary>
+        </member>
+        <member name="P:ZigBeeLibrary.ComSettingModel.ZigbeeCom">
+            <summary>
+            Zigbee串口号
+            </summary>
+        </member>
+        <member name="T:ZigBeeLibrary.ZigBee">
+            <summary>
+            ZigBee
+            </summary>
+        </member>
+        <member name="M:ZigBeeLibrary.ZigBee.#ctor(ZigBeeLibrary.ComSettingModel)">
+            <summary>
+            构造函数
+            </summary>
+            <param name="settingModel">串口设置模型</param>
+        </member>
+        <member name="M:ZigBeeLibrary.ZigBee.CheckData(System.Byte[])">
+            <summary>
+            检验数据是否正确
+            </summary>
+            <param name="data"></param>
+            <returns></returns>
+        </member>
+        <member name="M:ZigBeeLibrary.ZigBee.GetSet">
+            <summary>
+            获取传感器值
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="P:ZigBeeLibrary.ZigBee.OriginalData">
+            <summary>
+            原始数据
+            </summary>
+        </member>
+    </members>
+</doc>
